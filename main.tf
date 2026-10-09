@@ -549,24 +549,28 @@ resource "aws_rds_cluster_activity_stream" "this" {
 # Managed Secret Rotation
 ################################################################################
 
-# There is not currently a way to disable secret rotation on an initial apply.
-# In order to use master password secrets management without a rotation, the following workaround can be used:
-# `manage_master_user_password_rotation` must be set to true first and applied followed by setting it to false and another apply.
-# Note: when setting `manage_master_user_password_rotation` to true, a schedule must also be set using `master_user_password_rotation_schedule_expression` or `master_user_password_rotation_automatically_after_days`.
-# To prevent password from being immediately rotated when implementing this workaround, set `master_user_password_rotate_immediately` to false.
-# See: https://github.com/hashicorp/terraform-provider-aws/issues/37779
+# RDS enables automatic rotation of the managed master user secret by default.
+# - To manage the rotation schedule, set `manage_master_user_password_rotation` to true and set either
+#   `master_user_password_rotation_schedule_expression` or `master_user_password_rotation_automatically_after_days`.
+# - To disable rotation, set `master_user_password_rotation_enabled` to false.
+# See: https://github.com/hashicorp/terraform-provider-aws/pull/49659
 resource "aws_secretsmanager_secret_rotation" "this" {
-  count = local.create && var.manage_master_user_password && var.manage_master_user_password_rotation ? 1 : 0
+  count = local.create && var.manage_master_user_password && (var.manage_master_user_password_rotation || var.master_user_password_rotation_enabled == false) ? 1 : 0
 
   region = var.region
 
   secret_id          = aws_rds_cluster.this[0].master_user_secret[0].secret_arn
-  rotate_immediately = var.master_user_password_rotate_immediately
+  rotate_immediately = var.master_user_password_rotation_enabled == false ? null : var.master_user_password_rotate_immediately
+  rotation_enabled   = var.master_user_password_rotation_enabled
 
-  rotation_rules {
-    automatically_after_days = var.master_user_password_rotation_automatically_after_days
-    duration                 = var.master_user_password_rotation_duration
-    schedule_expression      = var.master_user_password_rotation_schedule_expression
+  dynamic "rotation_rules" {
+    for_each = var.master_user_password_rotation_enabled == false ? [] : [1]
+
+    content {
+      automatically_after_days = var.master_user_password_rotation_automatically_after_days
+      duration                 = var.master_user_password_rotation_duration
+      schedule_expression      = var.master_user_password_rotation_schedule_expression
+    }
   }
 }
 

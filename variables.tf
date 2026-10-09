@@ -809,9 +809,15 @@ variable "cluster_activity_stream" {
 ################################################################################
 
 variable "manage_master_user_password_rotation" {
-  description = "Whether to manage the master user password rotation. By default, false on creation, rotation is managed by RDS. There is not currently a way to disable this on initial creation even when set to false. Setting this value to false after previously having been set to true will disable automatic rotation"
+  description = "Whether to manage the master user password rotation schedule. When false, rotation is managed by RDS, which enables it by default. To disable rotation, set `master_user_password_rotation_enabled` to `false`"
   type        = bool
   default     = false
+}
+
+variable "master_user_password_rotation_enabled" {
+  description = "Whether automatic rotation is enabled for the RDS-managed master user secret. Set to `false` to disable the rotation RDS enables by default when `manage_master_user_password` is `true`. Requires AWS provider >= 6.62"
+  type        = bool
+  default     = null
 }
 
 variable "master_user_password_rotate_immediately" {
